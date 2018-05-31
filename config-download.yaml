@@ -1,8 +1,10 @@
 ---
+
 - name: Cleanup existing files when force=true
   gather_facts: no
   hosts: undercloud
   tasks:
+
     - name: Delete created files
       file:
         path: "{{ item }}"
@@ -17,6 +19,7 @@
   gather_facts: no
   hosts: undercloud
   tasks:
+
     - name: Run config-download
       shell: |
         source {{ stackrc }}
@@ -25,12 +28,14 @@
           --no-preserve-config
       args:
         creates: "{{ config_download_dir }}"
+
     - name: Generate inventory
       shell: |
         source {{ stackrc }}
         tripleo-ansible-inventory --static-yaml-inventory {{ config_download_dir ~ '/' ~ inventory_path }} --ansible_ssh_user {{ overcloud_ssh_user }}
       args:
         creates: "{{ config_download_dir ~ '/' ~ inventory_path }}"
+
     - name: Init git repo for config-download
       shell: |
         cd {{ config_download_dir }}
@@ -44,6 +49,7 @@
   gather_facts: no
   hosts: tower-client
   tasks:
+
     - name: Create Tower organization
       tower_organization:
         tower_host: "{{ tower_host }}"
@@ -52,6 +58,7 @@
         tower_verify_ssl: "{{ tower_verify_ssl }}"
         name: "{{ tower_organization_name }}"
         description: "{{ tower_organization_description }}"
+
     - name: Create Tower credential
       tower_credential:
         tower_host: "{{ tower_host }}"
@@ -64,6 +71,7 @@
         organization: "{{ tower_organization_name }}"
         ssh_key_data: "{{ tower_credential_ssh_key_path }}"
         username: "{{ tower_credential_username }}"
+
     - name: Create Tower project
       tower_project:
         description: "{{ tower_project_description }}"
@@ -76,6 +84,7 @@
         tower_username: "{{ tower_username }}"
         tower_password: "{{ tower_password }}"
         tower_verify_ssl: "{{ tower_verify_ssl }}"
+
     - name: Create Tower inventory
       tower_inventory:
         name: "{{ tower_inventory_name }}"
@@ -85,6 +94,7 @@
         tower_username: "{{ tower_username }}"
         tower_password: "{{ tower_password }}"
         tower_verify_ssl: "{{ tower_verify_ssl }}"
+
     - name: Create Tower inventory source
       # No apparent way to do this with the ansible tower module?
       shell: |
@@ -100,6 +110,7 @@
           --tower-username {{ tower_username }} \
           --tower-password {{ tower_password }} \
           --tower-host {{ tower_host }}
+
     - name: Create Tower credential for overcloud
       tower_credential:
         tower_host: "{{ tower_host }}"
@@ -112,6 +123,7 @@
         organization: "{{ tower_organization_name }}"
         ssh_key_data: "{{ tower_credential_overcloud_ssh_key_path }}"
         username: "{{ tower_credential_overcloud_username }}"
+
     - name: Create Tower job template
       tower_job_template:
         tower_host: "{{ tower_host }}"
@@ -125,5 +137,3 @@
         playbook: "{{ tower_job_template_playbook }}"
         project: "{{ tower_project_name }}"
         become_enabled: true
-
-
