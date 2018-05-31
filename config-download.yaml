@@ -1,4 +1,17 @@
 ---
+- name: Cleanup existing files when force=true
+  gather_facts: no
+  hosts: undercloud
+  tasks:
+    - name: Delete created files
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ config_download_dir }}"
+        - "{{ config_download_dir ~ '/' ~ inventory_path }}"
+        - "{{ config_download_dir ~ '/.git/config' }}"
+      when: force|bool == true
 
 - name: undercloud config-download
   gather_facts: no
@@ -12,55 +25,20 @@
           --no-preserve-config
       args:
         creates: "{{ config_download_dir }}"
+    - name: Generate inventory
+      shell: |
+        source {{ stackrc }}
+        tripleo-ansible-inventory --static-yaml-inventory {{ config_download_dir ~ '/' ~ inventory_path }} --ansible_ssh_user {{ overcloud_ssh_user }}
+      args:
+        creates: "{{ config_download_dir ~ '/' ~ inventory_path }}"
     - name: Init git repo for config-download
       shell: |
         cd {{ config_download_dir }}
         git init
         git add -A .
-        git commit -m "Initial commit"
-    - name: Generate inventory
-      shell: |
-        source {{ stackrc }}
-        tripleo-ansible-inventory --static-yaml-inventory {{ inventory_path }}
+        git commit -m "Initial commit" --allow-empty
       args:
-        creates: "{{ inventory_path }}"
-    - name: Create remote tarball of config-download directory
-      shell: |
-        tar czf {{ config_download_dir }}.tgz {{ config_download_dir }}
-      args:
-        creates: "{{ config_download_dir ~ '.tgz' }}"
-    - name: Fetch remote tarball of config-download directory
-      fetch:
-        dest: "{{ config_download_dir ~ '.tgz' }}"
-        src: "{{ config_download_dir ~ '.tgz' }}"
-        fail_on_missing: true
-        flat: true
-    - name: Fetch inventory
-      fetch:
-        src: "{{ inventory_path }}"
-        dest: "{{ inventory_path }}"
-        flat: true
-        fail_on_missing: true
-
-- name: Copy inventory and config-download to Tower
-  gather_facts: no
-  become: true
-  hosts: tower
-  tasks:
-    - name: Copy config-download
-      copy:
-        dest: "{{ tower_project_dir ~ '/' }}"
-        src: "{{ config_download_dir ~ '.tgz' }}"
-    - name: Extract config-download
-      shell: |
-        cd {{ tower_project_dir }}
-        tar xzf {{ config_download_dir ~ '.tgz' }}
-      args:
-        creates: "{{ tower_project_dir ~ '/' ~ config_download_dir ~ '/deploy_steps_playbook.yaml' }}"
-    - name: Copy inventory
-      copy:
-        src: "{{ inventory_path }}"
-        dest: "{{ tower_project_dir ~ '/' ~ config_download_dir ~ '/' ~ inventory_path }}"
+        creates: "{{ config_download_dir ~ '/.git/config' }}"
 
 - name: tower configuration
   gather_facts: no
@@ -74,12 +52,26 @@
         tower_verify_ssl: "{{ tower_verify_ssl }}"
         name: "{{ tower_organization_name }}"
         description: "{{ tower_organization_description }}"
+    - name: Create Tower credential
+      tower_credential:
+        tower_host: "{{ tower_host }}"
+        tower_username: "{{ tower_username }}"
+        tower_password: "{{ tower_password }}"
+        tower_verify_ssl: "{{ tower_verify_ssl }}"
+        kind: scm
+        name: "{{ tower_credential_name }}"
+        description: "{{ tower_credential_description }}"
+        organization: "{{ tower_organization_name }}"
+        ssh_key_data: "{{ tower_credential_ssh_key_path }}"
+        username: "{{ tower_credential_username }}"
     - name: Create Tower project
       tower_project:
         description: "{{ tower_project_description }}"
         name: "{{ tower_project_name }}"
         organization: "{{ tower_organization_name }}"
-        local_path: "{{ config_download_dir }}"
+        scm_type: git
+        scm_url: ssh://undercloud/{{ config_download_dir }}
+        scm_credential: "{{ tower_credential_name }}"
         tower_host: "{{ tower_host }}"
         tower_username: "{{ tower_username }}"
         tower_password: "{{ tower_password }}"
@@ -93,3 +85,45 @@
         tower_username: "{{ tower_username }}"
         tower_password: "{{ tower_password }}"
         tower_verify_ssl: "{{ tower_verify_ssl }}"
+    - name: Create Tower inventory source
+      # No apparent way to do this with the ansible tower module?
+      shell: |
+        tower-cli inventory_source create \
+          --name {{ tower_inventory_source_name }} \
+          --description {{ tower_inventory_source_description }} \
+          --inventory {{ tower_inventory_name }} \
+          --source scm \
+          --source-project {{ tower_project_name }} \
+          --source-path {{ inventory_path }} \
+          --update-on-project-update true \
+          --overwrite-vars true \
+          --tower-username {{ tower_username }} \
+          --tower-password {{ tower_password }} \
+          --tower-host {{ tower_host }}
+    - name: Create Tower credential for overcloud
+      tower_credential:
+        tower_host: "{{ tower_host }}"
+        tower_username: "{{ tower_username }}"
+        tower_password: "{{ tower_password }}"
+        tower_verify_ssl: "{{ tower_verify_ssl }}"
+        kind: ssh
+        name: "{{ tower_credential_overcloud_name }}"
+        description: "{{ tower_credential_overcloud_description }}"
+        organization: "{{ tower_organization_name }}"
+        ssh_key_data: "{{ tower_credential_overcloud_ssh_key_path }}"
+        username: "{{ tower_credential_overcloud_username }}"
+    - name: Create Tower job template
+      tower_job_template:
+        tower_host: "{{ tower_host }}"
+        tower_username: "{{ tower_username }}"
+        tower_password: "{{ tower_password }}"
+        tower_verify_ssl: "{{ tower_verify_ssl }}"
+        inventory: "{{ tower_inventory_name }}"
+        job_type: run
+        machine_credential: "{{ tower_credential_overcloud_name }}"
+        name: "{{ tower_job_template_name }}"
+        playbook: "{{ tower_job_template_playbook }}"
+        project: "{{ tower_project_name }}"
+        become_enabled: true
+
+

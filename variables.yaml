@@ -1,5 +1,5 @@
 stackrc: ~/stackrc
-config_download_dir: tripleo-config-download
+config_download_dir: /home/jslagle/tripleo-config-download
 local_config_download_dir: tripleo-config-download
 inventory_path: tripleo-inventory.yaml
 tower_host: https://192.168.122.13
@@ -10,6 +10,20 @@ tower_organization_name: tripleo-organization
 tower_organization_description: tripleo-organization
 tower_inventory_name: tripleo-inventory
 tower_inventory_description: tripleo-inventory
+tower_inventory_source_name: tripleo-inventory-source
+tower_inventory_source_description: tripleo-inventory-source
 tower_project_dir: /var/lib/awx/projects
 tower_project_name: tripleo-project
 tower_project_description: tripleo-project
+tower_credential_name: tripleo-credential
+tower_credential_description: tripleo-credential
+tower_credential_ssh_key_path: undercloud_rsa
+tower_credential_username: jslagle
+tower_credential_overcloud_name: tripleo-credential-overcloud
+tower_credential_overcloud_description: tripleo-credential-overcloud
+tower_credential_overcloud_ssh_key_path: /home/jslagle/.ssh/jslagle-rdo-cloud
+tower_credential_overcloud_username: centos
+overcloud_ssh_user: centos
+force: false
+tower_job_template_name: tripleo-config-download
+tower_job_template_playbook: deploy_steps_playbook.yaml
