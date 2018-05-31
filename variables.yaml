@@ -1,0 +1,15 @@
+stackrc: ~/stackrc
+config_download_dir: tripleo-config-download
+local_config_download_dir: tripleo-config-download
+inventory_path: tripleo-inventory.yaml
+tower_host: https://192.168.122.13
+tower_username: admin
+tower_password: password
+tower_verify_ssl: no
+tower_organization_name: tripleo-organization
+tower_organization_description: tripleo-organization
+tower_inventory_name: tripleo-inventory
+tower_inventory_description: tripleo-inventory
+tower_project_dir: /var/lib/awx/projects
+tower_project_name: tripleo-project
+tower_project_description: tripleo-project

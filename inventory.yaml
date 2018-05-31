@@ -1,0 +1,6 @@
+[undercloud]
+ansible_host=undercloud
+
+[tower-client]
+ansible_host=localhost
+ansible_connection=localhost
